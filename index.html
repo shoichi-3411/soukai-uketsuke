@@ -382,15 +382,17 @@
     function loadInit(attempt) {
       listState = 'loading';
       renderList();
-      callApi({ query: 'api=init&c=' + encodeURIComponent(rawPreset) }, 20000)
+      // ※ GASでは「c」はGoogleの予約語でエラーになるため、会社名は送らずこちらで照合する
+      callApi({ query: 'api=init' }, 20000)
         .then(function(data) {
           if (!data || !data.ok) throw new Error((data && data.error) || '読み込みエラー');
           companies = data.companies || [];
           listState = 'ready';
           renderList();
           if (rawPreset && selected === rawPreset) {
-            if (data.presetCompany) {
-              setCompany(data.presetCompany);
+            const hit = findCompany(rawPreset);
+            if (hit) {
+              setCompany(hit);
             } else if (companies.length) {
               setCompany('');
               showError('QRコードの会社名が一覧に見つかりませんでした。「会社名」から選択してください。');
@@ -406,6 +408,19 @@
           renderList();
           if (/設定エラー/.test(err.message)) showError(err.message);
         });
+    }
+
+    // 全角/半角・空白の違いを無視して一致する会社名を探す
+    function normalize(s) {
+      return String(s || '').normalize('NFKC').replace(/\s+/g, '');
+    }
+    function findCompany(name) {
+      if (companies.indexOf(name) !== -1) return name;
+      const key = normalize(name);
+      for (let i = 0; i < companies.length; i++) {
+        if (normalize(companies[i]) === key) return companies[i];
+      }
+      return '';
     }
 
     function renderList() {
